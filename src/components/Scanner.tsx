@@ -5,14 +5,17 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { isValidSerial, parseSerial } from '@/lib/warranty'
 
 // Frame size as a fraction of the preview (wide and short suits 1D serial barcodes)
 const FRAME = { w: 0.8, h: 0.28 }
 const SCAN_INTERVAL_MS = 200
 const FORMATS = ['code_128', 'code_39', 'qr_code', 'data_matrix', 'ean_13', 'itf'] as const
 
+/** Returns the cleaned code only if it parses to a valid serial; otherwise ''. */
 export function cleanSerial(raw: string) {
-  return raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const { serial } = parseSerial(raw)
+  return isValidSerial(serial) ? raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') : ''
 }
 
 interface Props {

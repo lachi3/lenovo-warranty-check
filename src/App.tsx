@@ -16,6 +16,7 @@ import {
   fetchWarranty,
   formatDate,
   getStatus,
+  parseSerial,
   type WarrantyEntry,
   type WarrantyResult,
 } from '@/lib/warranty'
@@ -175,6 +176,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<WarrantyResult | null>(null)
   const [scanning, setScanning] = useState(false)
+  const [prefix, setPrefix] = useState<string | null>(null)
   const [history, setHistory] = useState<HistoryItem[]>(loadHistory)
 
   useEffect(() => saveHistory(history), [history])
@@ -192,8 +194,9 @@ export default function App() {
   }, [])
 
   async function search(value: string) {
-    const s = value.trim().toUpperCase()
+    const { serial: s, prefix } = parseSerial(value)
     if (!s) return
+    setPrefix(prefix)
     setSerial(s)
     const url = new URL(window.location.href)
     url.search = ''
@@ -254,6 +257,12 @@ export default function App() {
             <span className="hidden sm:inline">Search</span>
           </Button>
         </form>
+
+        {prefix && (
+          <p className="text-xs text-muted-foreground">
+            Stripped prefix <span className="font-mono">{prefix}</span> from the scanned code.
+          </p>
+        )}
 
         <Button
           type="button"

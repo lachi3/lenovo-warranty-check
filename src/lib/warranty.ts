@@ -62,3 +62,43 @@ export function elapsedPercent(r: WarrantyResult): number | null {
   if (!start || !end || end <= start) return null
   return Math.min(100, Math.max(0, ((Date.now() - start.getTime()) / (end.getTime() - start.getTime())) * 100))
 }
+
+export interface ParsedSerial {
+  serial: string
+  /** Anything stripped from the front of the raw input (e.g. "1S20XW0035"), if any. */
+  prefix: string | null
+}
+
+/**
+ * Extracts the serial from raw input / barcode contents.
+ * Lenovo labels often encode [`1S`] + machine-type-model (10 chars) + 8-char serial,
+ * e.g. `1S20XW0035PF1ABCDE` or `21R8S0JD00PW0Q7HTK`. Also handles an `S` prefix and "S/N:" style labels.
+ */
+export function parseSerial(raw: string): ParsedSerial {
+  let v = raw.trim().toUpperCase()
+  v = v.replace(/^(?:S\/N|SERIAL(?:\s*NUMBER)?|SN)\s*[:#-]?\s*/, '')
+  v = v.replace(/[^A-Z0-9]/g, '')
+
+  // Our devices start with PW or PC: use that as the anchor so any prefix length works.
+  // Prefer a standard 8-char serial, then allow 7-10 chars; take the leftmost fit
+  // when a longer serial is possible, so the prefix itself containing "PW"/"PC" is safe.
+  if (v.length > 8) {
+    for (const len of [8, 10, 9, 7]) {
+      const start = v.length - len
+      if (start > 0 && /^P[WC]/.test(v.slice(start))) return { serial: v.slice(start), prefix: v.slice(0, start) }
+    }
+  }
+
+  // Machine type/model prefix (10 chars, optionally preceded by "1S") + 8-char serial,
+  // e.g. 1S20XW0035PF1ABCDE or 21R8S0JD00PW0Q7HTK -> last 8 chars are the serial.
+  if (v.length >= 16) return { serial: v.slice(-8), prefix: v.slice(0, -8) }
+  if (v.startsWith('1S') && v.length > 10) return { serial: v.slice(-8), prefix: v.slice(0, -8) }
+  if (v.length === 9 && v.startsWith('S')) return { serial: v.slice(1), prefix: 'S' }
+  return { serial: v, prefix: null }
+}
+
+/** True if the (already parsed) serial looks like a real Lenovo serial. */
+export function isValidSerial(serial: string): boolean {
+  if (/^P[WC][A-Z0-9]{6}$/.test(serial)) return true
+  return /^[A-Z0-9]{8}$/.test(serial) && /[A-Z]/.test(serial) && /[0-9]/.test(serial)
+}
